@@ -1,1 +1,5 @@
-*.csv
+.DS_Store
+.ipynb_checkpoints
+build
+node_modules
+2008.csv
