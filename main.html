@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<head>
+    <meta charset="utf-8">
+    <style>
+        .land {
+            fill: LightSteelBlue;
+        }
+        .border {
+            fill: none;
+            stroke: #fff;
+            stroke-linejoin: round;
+            stroke-linecap: round;
+            stroke-width: 0.5;
+        }
+        .pie {
+            /*fill: rgb(247, 148, 32);*/
+            /*stroke: black;*/
+            /*stroke-width: 0.7;*/
+            opacity: 0.7;
+        }
+    </style>
+    <script src="http://d3js.org/d3.v3.min.js"></script>
+    <script src="http://d3js.org/topojson.v1.min.js"></script>
+    <script type="text/javascript">
+        function drawMap(error, atlasData) {
+            if (error) return console.error(error);
+ 
+            "use strict";
+            var path = d3.geo.path().projection(null);
+            var map = svg.append("g")
+                         .attr("class", "map");
+            map.append("path")
+               .datum(topojson.feature(atlasData, atlasData.objects.country))
+               .attr("class", "land")
+               .attr("d", path);
+            map.append("path")
+               .datum(topojson.mesh(atlasData, atlasData.objects.states,
+                    function(a, b) { return a !== b; } ))
+               .attr("class", "border")
+               .attr("d", path);
+
+            d3.csv("flights-stat.csv", drawAirports);
+        }
+
+        function drawAirports(error, data) {
+            data.forEach(function(d) {
+                center = projection([+d.Lon, +d.Lat]);
+                if (center) {
+                    d.x = center[0];
+                    d.y = center[1];
+                }
+                d.values = [+d.Cancelled, +d.Delayed, +d.Count - d.Cancelled - d.Delayed]
+                    .map(function(dd) { return {"value": dd, "radius": +d.Count}; });
+            });
+            data = data.filter(function(d) { return (d.x != null && d.Count > minFlightsCount); })
+                       .sort(function(a, b) { return b.Count - a.Count; });                       
+            var maxFlightsCount = d3.max(data, function(d) { return d.Count; });
+            var radius = d3.scale.sqrt()
+                           .domain([0, maxFlightsCount])
+                           .range([0, maxRadius]);
+            var pie = d3.layout.pie()
+                               .value(function(d) { return d.value; })
+                               .sort(null);
+            var bubbles = svg.append('g')
+                             .attr("class", "bubbles");
+            var pies = bubbles.selectAll(".pie")
+                              .data(data)
+                              .enter()
+                              .append("g")
+                              .attr("class", "pie")
+                              .attr("transform", function(d) { return "translate(" + d.x + "," + d.y + ")"; });
+            pies.selectAll("path")
+                .data(function(d) { return pie(d.values); })
+                .enter()
+                .append("path")
+                .attr("class", "sector")
+                .attr("d", d3.svg.arc().outerRadius(function(d) { return radius(d.data.radius); }))
+                .attr("fill", function(d, i) { return color(i); });
+        }
+    </script>
+<body>
+    <script type="text/javascript">
+        var margin = 75,
+            width = 1000,
+            height = 675,
+            scale = 1200,
+            maxRadius = 20,
+            minFlightsCount = 2e3;
+        var svg = d3.select("body")
+                    .append("svg")
+                    .attr("width", width)
+                    .attr("height", height);
+        var frame = svg.append("rect")
+                       .attr("x", 0)
+                       .attr("y", 0)
+                       .attr("width", width)
+                       .attr("height", height)
+                       .style("stroke", "black")
+                       .style("fill", "none");
+        var color = d3.scale.ordinal()
+                      .range(["#ff7f0e", "#bcbd22", "#1f77b4"]);
+        var projection = d3.geo.albersUsa()
+                           .scale(scale)
+                           .translate([0.5 * width, 0.5 * height]);
+
+        d3.json("us.json", drawMap);
+    </script>
+</body>

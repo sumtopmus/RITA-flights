@@ -1,24 +1,37 @@
-build/world-countries-10m.zip:
+.PHONY: all clean
+
+all: us.json flights-stat.csv
+
+clean:
+	rm -rf build
+	rm -f us.json
+	rm -f flights-stat.csv
+
+flights-stat.csv:
+	python flights-stat.py
+
+build/cb_2014_us_state_5m.zip:
 	mkdir -p $(dir $@)
-	curl -o $@.download http://naciscdn.org/naturalearth/10m/cultural/ne_10m_admin_0_map_subunits.zip
+	curl -o $@.download \
+		http://www2.census.gov/geo/tiger/GENZ2014/shp/cb_2014_us_state_5m.zip
 	mv -f $@.download $@
 
-build/world-countries-10m.shp: build/world-countries-10m.zip
-	mkdir -p $(dir $@)
-	rm -f $(dir $@)/*.shp
-	rm -f $(dir $@)/*.dbf
-	unzip -o $(dir $@)/world-countries-10m *.shp -d $(dir $@)
-	unzip -o $(dir $@)/world-countries-10m *.dbf -d $(dir $@)
-	mv -f $(dir $@)/*.shp $(dir $@)/world-countries-10m.shp
-	mv -f $(dir $@)/*.dbf $(dir $@)/world-countries-10m.dbf
+build/cb_2014_us_state_5m.shp: build/cb_2014_us_state_5m.zip
+	unzip -o -d $(dir $@) $<
+	touch $@
 
-build/world-countries-10m.json: build/world-countries-10m.shp
-	node_modules/.bin/topojson \
-		-o $@ \
-		--projection='width = 960, height = 600, d3.geo.mercator()' \
-		--simplify=.5 \
-		-- counties=$<
+build/states.json: build/cb_2014_us_state_5m.shp
+	topojson \
+		--simplify=.01 \
+		--projection='width = 1000, height = 675, scale = 1200, d3.geo.albersUsa() \
+			.scale(scale) \
+			.translate([width / 2, height / 2])' \
+		--out $@ \
+		-- states=$<
 
-build/flight-stats.csv:
-	mkdir -p $(dir $@)
-	python calculate-flight-stats.py
+us.json: build/states.json
+	topojson-merge \
+		--out $@ \
+		--in-object=states \
+		--out-object=country \
+		-- $<

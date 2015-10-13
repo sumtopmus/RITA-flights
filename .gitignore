@@ -1,5 +1,6 @@
 .DS_Store
 .ipynb_checkpoints
+archive
 build
 node_modules
 2008.csv
